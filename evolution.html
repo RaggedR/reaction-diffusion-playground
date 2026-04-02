@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evolving Turing Patterns</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08081a;color:#d0d0e0;font-family:'Menlo','Consolas','Monaco',monospace;min-height:100vh}
+#app{max-width:960px;margin:0 auto;padding:24px}
+
+header{display:flex;align-items:baseline;gap:20px;margin-bottom:28px;border-bottom:1px solid #1a1a3a;padding-bottom:14px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:600;color:#e8e8f0;letter-spacing:-0.5px}
+#gen-counter{font-size:13px;color:#888}
+#gen-num{color:#d4a843;font-weight:700}
+#status{font-size:12px;color:#555;margin-left:auto}
+
+#islands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.island-card{background:#0e0e24;border:1px solid #1a1a3a;border-radius:8px;padding:12px;text-align:center;transition:border-color 0.3s}
+.island-card.best{border-color:#d4a843}
+.island-name{font-size:11px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px}
+.island-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.c0{background:#ff6b6b}.c1{background:#4ecdc4}.c2{background:#ffe66d}.c3{background:#a78bfa}
+.pattern-img{width:100%;aspect-ratio:1;background:#050510;border-radius:4px;display:block;image-rendering:auto}
+.island-params{font-size:10px;color:#555;margin-top:8px;line-height:1.7;font-variant-numeric:tabular-nums}
+.island-fitness{font-size:13px;font-weight:600;color:#2aa198;margin-top:4px}
+
+#chart-section{margin-bottom:28px}
+#chart-section h2{font-size:12px;color:#555;margin-bottom:8px;font-weight:400}
+#fitness-chart{width:100%;height:120px;background:#0a0a1e;border:1px solid #1a1a3a;border-radius:6px;display:block}
+
+#hall-of-fame{margin-bottom:28px}
+#hall-of-fame h2{font-size:12px;color:#555;margin-bottom:10px;font-weight:400}
+#hof-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+.hof-entry{flex-shrink:0;text-align:center}
+.hof-entry img{width:80px;height:80px;border:1px solid #d4a843;border-radius:4px;image-rendering:auto;display:block}
+.hof-info{font-size:9px;color:#777;margin-top:4px;line-height:1.4}
+
+#controls{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid #1a1a3a;flex-wrap:wrap}
+#topo-selector{display:flex;align-items:center;gap:8px}
+#topo-selector span{font-size:11px;color:#555}
+.topo-btn{background:#111128;border:1px solid #2a2a4a;color:#999;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;transition:all 0.15s}
+.topo-btn:hover{border-color:#4a4a6a;color:#ddd}
+.topo-btn.active{background:#1a1a3a;border-color:#2aa198;color:#2aa198}
+#action-buttons{display:flex;gap:8px}
+.action-btn{border:none;color:#fff;padding:7px 18px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;transition:all 0.15s}
+.action-btn.primary{background:#2aa198}.action-btn.primary:hover{background:#35b5ab}
+.action-btn.secondary{background:#1a1a3a;color:#999}.action-btn.secondary:hover{background:#2a2a4a;color:#ddd}
+.action-btn:disabled{background:#1a1a2a!important;color:#444!important;cursor:not-allowed}
+
+@media(max-width:700px){#islands-grid{grid-template-columns:repeat(2,1fr)}}
+
+.experiment-panel{margin-top:20px;border:1px solid #1a1a3a;border-radius:8px;background:#0a0a1e}
+.experiment-header{padding:12px 16px;cursor:pointer;font-size:12px;color:#888;user-select:none;display:flex;align-items:center;gap:8px}
+.experiment-header:hover{color:#ddd}
+.experiment-header .arrow{transition:transform 0.2s;display:inline-block}
+.experiment-header .arrow.open{transform:rotate(90deg)}
+.experiment-body{padding:0 16px 16px;display:none}
+.experiment-body.open{display:block}
+.experiment-inputs{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.experiment-inputs label{font-size:11px;color:#888;display:flex;align-items:center;gap:6px}
+.experiment-inputs input[type="number"]{width:60px;background:#111128;border:1px solid #2a2a4a;color:#ddd;padding:4px 6px;border-radius:3px;font-family:inherit;font-size:11px}
+.topo-checks{display:flex;gap:10px;align-items:center}
+.topo-checks label{font-size:11px;color:#888;display:flex;align-items:center;gap:4px;cursor:pointer}
+.topo-checks input[type="checkbox"]{accent-color:#2aa198}
+.progress-container{margin-top:12px;position:relative;height:22px;background:#111128;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#2aa198,#35b5ab);transition:width 0.3s;width:0}
+.progress-text{position:absolute;top:0;left:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ddd}
+#exp-results{margin-top:16px}
+#exp-results h3{font-size:12px;color:#555;font-weight:400;margin-bottom:10px}
+.results-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}
+.results-table th,.results-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #1a1a3a}
+.results-table th{color:#888;font-weight:400}
+.results-table td{color:#ddd;font-variant-numeric:tabular-nums}
+#diversity-chart{width:100%;height:160px;background:#0a0a1e;border:1px solid #1a1a3a;border-radius:6px;display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Evolving Turing Patterns</h1>
+    <div id="gen-counter">Generation <span id="gen-num">0</span></div>
+    <div id="status">Ready</div>
+  </header>
+  <div id="islands-grid"></div>
+  <div id="chart-section"><h2>Fitness over generations</h2><canvas id="fitness-chart"></canvas></div>
+  <div id="hall-of-fame"><h2>Hall of Fame</h2><div id="hof-strip"><span style="font-size:11px;color:#444">Patterns will appear here as evolution runs...</span></div></div>
+  <div id="controls">
+    <div id="topo-selector">
+      <span>Migration:</span>
+      <button class="topo-btn active" data-topo="none">None</button>
+      <button class="topo-btn" data-topo="ring">Ring</button>
+      <button class="topo-btn" data-topo="star">Star</button>
+      <button class="topo-btn" data-topo="fc">Full</button>
+    </div>
+    <div id="action-buttons">
+      <button class="action-btn primary" id="btn-start">Evolve</button>
+      <button class="action-btn secondary" id="btn-pause" disabled>Pause</button>
+      <button class="action-btn secondary" id="btn-reset" disabled>Reset</button>
+    </div>
+  </div>
+  <div class="experiment-panel">
+    <div class="experiment-header" id="experiment-toggle">
+      <span class="arrow">&#9654;</span> Batch Experiment
+    </div>
+    <div class="experiment-body" id="experiment-body">
+      <div class="experiment-inputs">
+        <label>Generations <input type="number" id="exp-gens" value="30" min="1" max="200"></label>
+        <label>Seeds <input type="number" id="exp-seeds" value="10" min="1" max="50"></label>
+        <div class="topo-checks" id="topo-checks">
+          <label><input type="checkbox" value="none" checked> None</label>
+          <label><input type="checkbox" value="ring" checked> Ring</label>
+          <label><input type="checkbox" value="star" checked> Star</label>
+          <label><input type="checkbox" value="fc" checked> Full</label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="action-btn primary" id="btn-experiment">Run Experiment</button>
+        <button class="action-btn secondary" id="btn-download-csv" disabled>Download CSV</button>
+      </div>
+      <div class="progress-container" id="exp-progress-container" style="display:none">
+        <div class="progress-fill" id="exp-progress-fill"></div>
+        <div class="progress-text" id="exp-progress-text"></div>
+      </div>
+      <div id="exp-results" style="display:none">
+        <h3>Diversity at final generation (mean &plusmn; std across seeds)</h3>
+        <div id="exp-summary"></div>
+        <h3 style="margin-top:14px">Diversity over generations (total diversity, averaged across seeds)</h3>
+        <canvas id="diversity-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ── Shaders ─────────────────────────────────────────────────
+
+const VERT = `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const SIM_FRAG = `
+uniform sampler2D tPrev;
+uniform vec2 resolution;
+uniform float f, k, dA, dB, timestep;
+varying vec2 vUv;
+
+void main() {
+  vec2 tx = 1.0 / resolution;
+  vec4 c = texture2D(tPrev, vUv);
+  float A = c.r, B = c.g;
+
+  // 5-point Laplacian
+  vec2 L = -4.0 * c.rg
+    + texture2D(tPrev, fract(vUv + vec2( tx.x, 0.0))).rg
+    + texture2D(tPrev, fract(vUv + vec2(-tx.x, 0.0))).rg
+    + texture2D(tPrev, fract(vUv + vec2(0.0,  tx.y))).rg
+    + texture2D(tPrev, fract(vUv + vec2(0.0, -tx.y))).rg;
+
+  float r = A * B * B;
+  float nA = A + (dA * L.x - r + f * (1.0 - A)) * timestep;
+  float nB = B + (dB * L.y + r - (f + k) * B) * timestep;
+
+  gl_FragColor = vec4(clamp(nA, 0.0, 1.0), clamp(nB, 0.0, 1.0), 0.0, 1.0);
+}`;
+
+const DISPLAY_FRAG = `
+uniform sampler2D tSim;
+varying vec2 vUv;
+
+vec3 inferno(float t) {
+  t = clamp(t, 0.0, 1.0);
+  vec3 c0 = vec3(0.0002, 0.0016, -0.0194);
+  vec3 c1 = vec3(0.1065, 0.5639,  3.9327);
+  vec3 c2 = vec3(11.6024,-3.9728,-15.9423);
+  vec3 c3 = vec3(-41.704, 17.4363, 44.3541);
+  vec3 c4 = vec3(77.1629,-33.4023,-81.8073);
+  vec3 c5 = vec3(-73.6831,32.6262, 73.2095);
+  vec3 c6 = vec3(27.1634,-12.5844,-23.0703);
+  return c0+t*(c1+t*(c2+t*(c3+t*(c4+t*(c5+t*c6)))));
+}
+
+void main() {
+  float B = texture2D(tSim, vUv).g;
+  gl_FragColor = vec4(inferno(B * 2.5), 1.0);
+}`;
+
+// ── Configuration ───────────────────────────────────────────
+
+const CONFIG = {
+  simSize: 128,
+  simSteps: 4000,
+  numIslands: 4,
+  popSize: 8,
+  eliteCount: 2,
+  tournamentSize: 3,
+  migrationInterval: 5,
+  hofSize: 10,
+  mutationSigma: { f: 0.004, k: 0.003, dA: 0.008, dB: 0.015 },
+  initRange: {
+    f:  [0.02, 0.08],
+    k:  [0.045, 0.065],
+    dA: [0.18, 0.24],
+    dB: [0.04, 0.14]
+  }
+};
+
+const ISLAND_COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a78bfa'];
+
+// ── PRNG ────────────────────────────────────────────────────
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+let rng = Math.random;
+
+// ── Utilities ───────────────────────────────────────────────
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function gaussianRandom() {
+  let u, v, s;
+  do { u = rng() * 2 - 1; v = rng() * 2 - 1; s = u*u + v*v; } while (s >= 1 || s === 0);
+  return u * Math.sqrt(-2 * Math.log(s) / s);
+}
+
+function randRange(lo, hi) { return lo + rng() * (hi - lo); }
+
+function shannonEntropy(histogram, total) {
+  let e = 0;
+  for (let i = 0; i < histogram.length; i++) {
+    if (histogram[i] > 0) { const p = histogram[i] / total; e -= p * Math.log2(p); }
+  }
+  return e;
+}
+
+function waitFrame() { return new Promise(r => requestAnimationFrame(r)); }
+
+// ── Simulator ───────────────────────────────────────────────
+
+class Simulator {
+  constructor(size) {
+    this.size = size;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = size;
+    this.canvas.height = size;
+
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, preserveDrawingBuffer: true });
+    this.renderer.setSize(size, size);
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.scene = new THREE.Scene();
+
+    const rtOpts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, stencilBuffer: false };
+    this.rt = [new THREE.WebGLRenderTarget(size, size, rtOpts), new THREE.WebGLRenderTarget(size, size, rtOpts)];
+
+    this.simMat = new THREE.ShaderMaterial({
+      uniforms: {
+        tPrev:      { value: null },
+        resolution: { value: new THREE.Vector2(size, size) },
+        f: { value: 0 }, k: { value: 0 }, dA: { value: 0 }, dB: { value: 0 },
+        timestep: { value: 1.0 }
+      },
+      vertexShader: VERT,
+      fragmentShader: SIM_FRAG
+    });
+
+    this.displayMat = new THREE.ShaderMaterial({
+      uniforms: { tSim: { value: null } },
+      vertexShader: VERT,
+      fragmentShader: DISPLAY_FRAG
+    });
+
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.simMat);
+    this.scene.add(this.mesh);
+
+    this.seedTex = this._makeSeed();
+  }
+
+  _makeSeed() {
+    const s = this.size;
+    const data = new Uint8Array(s * s * 4);
+    // Fill: A=1, B=0
+    for (let i = 0; i < s * s; i++) { data[i*4] = 255; data[i*4+3] = 255; }
+    // Seed circles of chemical B
+    const spots = [[0.5,0.5,0.12],[0.3,0.3,0.05],[0.7,0.3,0.05],[0.3,0.7,0.05],[0.7,0.7,0.05]];
+    for (const [cx, cy, r] of spots) {
+      const px = Math.floor(cx*s), py = Math.floor(cy*s), pr = Math.floor(r*s);
+      for (let y = py-pr; y <= py+pr; y++) {
+        for (let x = px-pr; x <= px+pr; x++) {
+          if (x >= 0 && x < s && y >= 0 && y < s && Math.hypot(x-px, y-py) < pr) {
+            const i = (y*s + x) * 4;
+            data[i] = 128;   // A = 0.5
+            data[i+1] = 64;  // B = 0.25
+          }
+        }
+      }
+    }
+    const tex = new THREE.DataTexture(data, s, s);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  evaluate(individual) {
+    const u = this.simMat.uniforms;
+    u.f.value = individual.f;
+    u.k.value = individual.k;
+    u.dA.value = individual.dA;
+    u.dB.value = individual.dB;
+
+    this.mesh.material = this.simMat;
+    let cur = 0;
+
+    // First step reads from seed texture
+    u.tPrev.value = this.seedTex;
+    this.renderer.setRenderTarget(this.rt[0]);
+    this.renderer.render(this.scene, this.camera);
+
+    // Remaining steps: ping-pong
+    for (let i = 1; i < CONFIG.simSteps; i++) {
+      const next = 1 - cur;
+      u.tPrev.value = this.rt[cur].texture;
+      this.renderer.setRenderTarget(this.rt[next]);
+      this.renderer.render(this.scene, this.camera);
+      cur = next;
+    }
+
+    // Read back pixels for fitness
+    const pixels = new Uint8Array(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.rt[cur], 0, 0, this.size, this.size, pixels);
+    const fitness = this._fitness(pixels);
+
+    // Render display (colormap) to canvas
+    this.mesh.material = this.displayMat;
+    this.displayMat.uniforms.tSim.value = this.rt[cur].texture;
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.scene, this.camera);
+    const imageData = this.canvas.toDataURL('image/png');
+
+    return { fitness, imageData };
+  }
+
+  evaluateFast(individual) {
+    const u = this.simMat.uniforms;
+    u.f.value = individual.f;
+    u.k.value = individual.k;
+    u.dA.value = individual.dA;
+    u.dB.value = individual.dB;
+
+    this.mesh.material = this.simMat;
+    let cur = 0;
+
+    u.tPrev.value = this.seedTex;
+    this.renderer.setRenderTarget(this.rt[0]);
+    this.renderer.render(this.scene, this.camera);
+
+    for (let i = 1; i < CONFIG.simSteps; i++) {
+      const next = 1 - cur;
+      u.tPrev.value = this.rt[cur].texture;
+      this.renderer.setRenderTarget(this.rt[next]);
+      this.renderer.render(this.scene, this.camera);
+      cur = next;
+    }
+
+    const pixels = new Uint8Array(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.rt[cur], 0, 0, this.size, this.size, pixels);
+    return this._fitness(pixels);
+  }
+
+  _fitness(pixels) {
+    const n = this.size * this.size;
+    const bins = 32;
+    const hist = new Float32Array(bins);
+    let alive = 0;
+
+    for (let i = 0; i < n; i++) {
+      const b = pixels[i*4+1] / 255;
+      hist[Math.min(Math.floor(b * bins), bins-1)]++;
+      if (b > 0.05 && b < 0.95) alive++;
+    }
+
+    const entropy = shannonEntropy(hist, n) / Math.log2(bins);
+    const aliveRatio = alive / n;
+    const alivePenalty = 4 * aliveRatio * (1 - aliveRatio); // peaks at 0.5
+    return entropy * (0.3 + 0.7 * alivePenalty);
+  }
+}
+
+// ── Individual ──────────────────────────────────────────────
+
+class Individual {
+  constructor(f, k, dA, dB) {
+    this.f = f; this.k = k; this.dA = dA; this.dB = dB;
+    this.fitness = 0;
+    this.imageData = null;
+  }
+
+  static random() {
+    const r = CONFIG.initRange;
+    return new Individual(randRange(...r.f), randRange(...r.k), randRange(...r.dA), randRange(...r.dB));
+  }
+
+  clone() { const c = new Individual(this.f, this.k, this.dA, this.dB); c.fitness = this.fitness; c.imageData = this.imageData; return c; }
+
+  mutate() {
+    const s = CONFIG.mutationSigma;
+    this.f  = clamp(this.f  + gaussianRandom() * s.f,  0.001, 0.12);
+    this.k  = clamp(this.k  + gaussianRandom() * s.k,  0.03,  0.08);
+    this.dA = clamp(this.dA + gaussianRandom() * s.dA, 0.1,   0.3);
+    this.dB = clamp(this.dB + gaussianRandom() * s.dB, 0.01,  0.25);
+  }
+
+  static crossover(a, b) {
+    return new Individual(
+      rng() < 0.5 ? a.f : b.f,
+      rng() < 0.5 ? a.k : b.k,
+      rng() < 0.5 ? a.dA : b.dA,
+      rng() < 0.5 ? a.dB : b.dB
+    );
+  }
+
+  get paramsString() {
+    return `f=${this.f.toFixed(4)} k=${this.k.toFixed(4)}\ndA=${this.dA.toFixed(3)} dB=${this.dB.toFixed(3)}`;
+  }
+}
+
+// ── Island ──────────────────────────────────────────────────
+
+class Island {
+  constructor(id) {
+    this.id = id;
+    this.population = Array.from({length: CONFIG.popSize}, () => Individual.random());
+  }
+
+  get best() { return this.population.reduce((a, b) => a.fitness > b.fitness ? a : b); }
+  get worst() { return this.population.reduce((a, b) => a.fitness < b.fitness ? a : b); }
+
+  tournamentSelect() {
+    let best = null;
+    for (let i = 0; i < CONFIG.tournamentSize; i++) {
+      const c = this.population[Math.floor(rng() * this.population.length)];
+      if (!best || c.fitness > best.fitness) best = c;
+    }
+    return best;
+  }
+
+  evolve() {
+    this.population.sort((a, b) => b.fitness - a.fitness);
+    const next = [];
+    // Elitism
+    for (let i = 0; i < CONFIG.eliteCount; i++) next.push(this.population[i].clone());
+    // Fill with offspring
+    while (next.length < CONFIG.popSize) {
+      const child = Individual.crossover(this.tournamentSelect(), this.tournamentSelect());
+      child.mutate();
+      next.push(child);
+    }
+    this.population = next;
+  }
+}
+
+// ── Migration ───────────────────────────────────────────────
+
+const TOPOLOGIES = {
+  none: () => [],
+  ring: (n) => Array.from({length: n}, (_, i) => [i, (i+1) % n]),
+  star: (n) => Array.from({length: n-1}, (_, i) => [0, i+1]),
+  fc:   (n) => { const e = []; for (let i = 0; i < n; i++) for (let j = i+1; j < n; j++) e.push([i, j]); return e; }
+};
+
+function migrate(islands, topology) {
+  const edges = TOPOLOGIES[topology](islands.length);
+  const migrants = islands.map(isl => isl.best.clone());
+
+  for (const [a, b] of edges) {
+    // Bidirectional: send best of each to the other, replace worst
+    const wA = islands[a].worst;
+    const wB = islands[b].worst;
+    if (migrants[b].fitness > wA.fitness) {
+      const idx = islands[a].population.indexOf(wA);
+      islands[a].population[idx] = migrants[b].clone();
+    }
+    if (migrants[a].fitness > wB.fitness) {
+      const idx = islands[b].population.indexOf(wB);
+      islands[b].population[idx] = migrants[a].clone();
+    }
+  }
+}
+
+// ── Diversity Metrics ────────────────────────────────────────
+
+const PARAM_RANGES = {
+  f:  [0.001, 0.12],
+  k:  [0.03,  0.08],
+  dA: [0.1,   0.3],
+  dB: [0.01,  0.25]
+};
+
+function normalizeParams(ind) {
+  return [
+    (ind.f  - PARAM_RANGES.f[0])  / (PARAM_RANGES.f[1]  - PARAM_RANGES.f[0]),
+    (ind.k  - PARAM_RANGES.k[0])  / (PARAM_RANGES.k[1]  - PARAM_RANGES.k[0]),
+    (ind.dA - PARAM_RANGES.dA[0]) / (PARAM_RANGES.dA[1] - PARAM_RANGES.dA[0]),
+    (ind.dB - PARAM_RANGES.dB[0]) / (PARAM_RANGES.dB[1] - PARAM_RANGES.dB[0])
+  ];
+}
+
+function euclideanDist(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum);
+}
+
+function avgPairwiseDist(individuals) {
+  if (individuals.length < 2) return 0;
+  const normed = individuals.map(normalizeParams);
+  let total = 0, count = 0;
+  for (let i = 0; i < normed.length; i++) {
+    for (let j = i + 1; j < normed.length; j++) {
+      total += euclideanDist(normed[i], normed[j]);
+      count++;
+    }
+  }
+  return total / count;
+}
+
+function centroid(individuals) {
+  const normed = individuals.map(normalizeParams);
+  const dim = normed[0].length;
+  const c = new Array(dim).fill(0);
+  for (const p of normed) for (let i = 0; i < dim; i++) c[i] += p[i];
+  for (let i = 0; i < dim; i++) c[i] /= normed.length;
+  return c;
+}
+
+function computeDiversity(isls) {
+  const allInds = isls.flatMap(isl => isl.population);
+  const total = avgPairwiseDist(allInds);
+  const withinValues = isls.map(isl => avgPairwiseDist(isl.population));
+  const within = withinValues.reduce((a, b) => a + b, 0) / withinValues.length;
+  const centroids = isls.map(isl => centroid(isl.population));
+  let bTotal = 0, bCount = 0;
+  for (let i = 0; i < centroids.length; i++) {
+    for (let j = i + 1; j < centroids.length; j++) {
+      bTotal += euclideanDist(centroids[i], centroids[j]);
+      bCount++;
+    }
+  }
+  return { total, within, between: bCount > 0 ? bTotal / bCount : 0 };
+}
+
+// ── Batch Experiment ─────────────────────────────────────────
+
+const TOPO_COLORS_EXP = { none: '#ff6b6b', ring: '#4ecdc4', star: '#ffe66d', fc: '#a78bfa' };
+let experimentResults = null;
+let experimentRunning = false;
+
+function updateExpProgress(fraction, text) {
+  $('#exp-progress-container').style.display = '';
+  $('#exp-progress-fill').style.width = `${Math.round(fraction * 100)}%`;
+  $('#exp-progress-text').textContent = text;
+}
+
+async function runExperiment(topologies, numSeeds, numGens) {
+  const results = [];
+  const totalRuns = topologies.length * numSeeds;
+  let runIndex = 0;
+
+  for (const topo of topologies) {
+    for (let seed = 1; seed <= numSeeds; seed++) {
+      rng = mulberry32(seed);
+      const expIslands = Array.from({length: CONFIG.numIslands}, (_, i) => new Island(i));
+
+      for (let gen = 0; gen < numGens; gen++) {
+        if (!experimentRunning) { rng = Math.random; return null; }
+
+        for (const isl of expIslands) {
+          for (const ind of isl.population) {
+            ind.fitness = simulator.evaluateFast(ind);
+          }
+        }
+
+        const diversity = computeDiversity(expIslands);
+        const allFit = expIslands.flatMap(isl => isl.population.map(ind => ind.fitness));
+        results.push({
+          topology: topo,
+          seed,
+          generation: gen,
+          bestFitness: Math.max(...allFit),
+          meanFitness: allFit.reduce((a, b) => a + b, 0) / allFit.length,
+          diversityTotal: diversity.total,
+          diversityBetween: diversity.between,
+          diversityWithin: diversity.within
+        });
+
+        for (const isl of expIslands) isl.evolve();
+        if (topo !== 'none' && gen > 0 && gen % CONFIG.migrationInterval === 0) {
+          migrate(expIslands, topo);
+        }
+
+        if (gen % 5 === 0) {
+          const progress = (runIndex + gen / numGens) / totalRuns;
+          updateExpProgress(progress, `${topo} seed ${seed}/${numSeeds} gen ${gen}/${numGens}`);
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+      runIndex++;
+      updateExpProgress(runIndex / totalRuns, `${topo} seed ${seed} done`);
+    }
+  }
+
+  rng = Math.random;
+  return results;
+}
+
+function generateCSV(results) {
+  const header = 'topology,seed,generation,best_fitness,mean_fitness,diversity_total,diversity_between,diversity_within';
+  const rows = results.map(r =>
+    `${r.topology},${r.seed},${r.generation},${r.bestFitness.toFixed(6)},${r.meanFitness.toFixed(6)},${r.diversityTotal.toFixed(6)},${r.diversityBetween.toFixed(6)},${r.diversityWithin.toFixed(6)}`
+  );
+  return header + '\n' + rows.join('\n');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderExpResults(results, numGens) {
+  const container = $('#exp-results');
+  container.style.display = '';
+
+  const topos = [...new Set(results.map(r => r.topology))];
+  const finalGen = numGens - 1;
+
+  let tableHTML = '<table class="results-table"><tr><th>Topology</th><th>Total Diversity</th><th>Between-Island</th><th>Within-Island</th><th>Best Fitness</th></tr>';
+  for (const topo of topos) {
+    const finalRows = results.filter(r => r.topology === topo && r.generation === finalGen);
+    const stats = (key) => {
+      const vals = finalRows.map(r => r[key]);
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const std = Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length);
+      return `${mean.toFixed(3)} \u00b1 ${std.toFixed(3)}`;
+    };
+    tableHTML += `<tr><td style="color:${TOPO_COLORS_EXP[topo]}">${topo}</td><td>${stats('diversityTotal')}</td><td>${stats('diversityBetween')}</td><td>${stats('diversityWithin')}</td><td>${stats('bestFitness')}</td></tr>`;
+  }
+  tableHTML += '</table>';
+  $('#exp-summary').innerHTML = tableHTML;
+
+  drawDiversityChart(results, numGens, topos);
+}
+
+function drawDiversityChart(results, numGens, topos) {
+  const canvas = $('#diversity-chart');
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * 2; canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+
+  ctx.fillStyle = '#0a0a1e';
+  ctx.fillRect(0, 0, W, H);
+
+  const pad = { l: 45, r: 80, t: 12, b: 24 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  // Compute per-topology, per-generation averages
+  const series = {};
+  for (const topo of topos) {
+    series[topo] = [];
+    for (let g = 0; g < numGens; g++) {
+      const rows = results.filter(r => r.topology === topo && r.generation === g);
+      series[topo].push(rows.reduce((a, r) => a + r.diversityTotal, 0) / rows.length);
+    }
+  }
+
+  let yMax = 0;
+  for (const topo of topos) for (const v of series[topo]) yMax = Math.max(yMax, v);
+  yMax = Math.ceil(yMax * 10) / 10 || 0.5;
+
+  // Axes
+  ctx.strokeStyle = '#1a1a3a'; ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b);
+  ctx.stroke();
+
+  // Y grid + labels
+  ctx.fillStyle = '#444'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  for (let v = 0; v <= yMax; v += yMax / 4) {
+    const y = pad.t + plotH * (1 - v / yMax);
+    ctx.fillText(v.toFixed(2), pad.l - 4, y + 3);
+    ctx.strokeStyle = '#111128';
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#444'; ctx.textAlign = 'center';
+  ctx.fillText('generation', pad.l + plotW / 2, H - 2);
+
+  const xScale = numGens > 1 ? numGens - 1 : 1;
+  for (const topo of topos) {
+    const data = series[topo];
+    ctx.strokeStyle = TOPO_COLORS_EXP[topo];
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let g = 0; g < numGens; g++) {
+      const x = pad.l + (g / xScale) * plotW;
+      const y = pad.t + plotH * (1 - data[g] / yMax);
+      g === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Legend
+  let ly = pad.t + 4;
+  ctx.textAlign = 'left'; ctx.font = '10px monospace';
+  for (const topo of topos) {
+    ctx.fillStyle = TOPO_COLORS_EXP[topo];
+    ctx.fillRect(W - pad.r + 10, ly, 10, 10);
+    ctx.fillStyle = '#888';
+    ctx.fillText(topo, W - pad.r + 24, ly + 9);
+    ly += 16;
+  }
+}
+
+// ── State ───────────────────────────────────────────────────
+
+let simulator, islands, generation, running, topology, hallOfFame, fitnessHistory;
+
+let webglOk = true;
+
+function initState() {
+  try {
+    simulator = new Simulator(CONFIG.simSize);
+  } catch (e) {
+    console.error('WebGL init failed:', e);
+    webglOk = false;
+  }
+  islands = Array.from({length: CONFIG.numIslands}, (_, i) => new Island(i));
+  generation = 0;
+  running = false;
+  topology = 'none';
+  hallOfFame = [];
+  fitnessHistory = Array.from({length: CONFIG.numIslands}, () => []);
+}
+
+// ── UI ──────────────────────────────────────────────────────
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function buildIslandCards() {
+  const grid = $('#islands-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < CONFIG.numIslands; i++) {
+    const card = document.createElement('div');
+    card.className = 'island-card';
+    card.id = `island-${i}`;
+    card.innerHTML = `
+      <div class="island-name"><span class="island-dot c${i}"></span>Island ${i+1}</div>
+      <img class="pattern-img" id="pattern-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="pattern">
+      <div class="island-params" id="params-${i}">-</div>
+      <div class="island-fitness" id="fitness-${i}">-</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function updateIslandDisplay(islandIdx) {
+  const isl = islands[islandIdx];
+  const best = isl.best;
+  if (best.imageData) $(`#pattern-${islandIdx}`).src = best.imageData;
+  $(`#params-${islandIdx}`).textContent = best.paramsString;
+  $(`#fitness-${islandIdx}`).textContent = `fitness: ${best.fitness.toFixed(3)}`;
+
+  // Highlight global best island
+  const globalBestIdx = islands.reduce((bi, isl, i, arr) => isl.best.fitness > arr[bi].best.fitness ? i : bi, 0);
+  $$('.island-card').forEach((c, i) => c.classList.toggle('best', i === globalBestIdx));
+}
+
+function updateHallOfFame() {
+  for (const isl of islands) {
+    const best = isl.best;
+    if (best.fitness > 0 && best.imageData) {
+      const exists = hallOfFame.some(h => Math.abs(h.f - best.f) < 0.001 && Math.abs(h.k - best.k) < 0.001);
+      if (!exists) {
+        hallOfFame.push({
+          fitness: best.fitness,
+          imageData: best.imageData,
+          f: best.f, k: best.k, dA: best.dA, dB: best.dB,
+          gen: generation
+        });
+        hallOfFame.sort((a, b) => b.fitness - a.fitness);
+        if (hallOfFame.length > CONFIG.hofSize) hallOfFame.pop();
+      } else {
+        // Update existing entry if better
+        const entry = hallOfFame.find(h => Math.abs(h.f - best.f) < 0.001 && Math.abs(h.k - best.k) < 0.001);
+        if (entry && best.fitness > entry.fitness) {
+          Object.assign(entry, { fitness: best.fitness, imageData: best.imageData, dA: best.dA, dB: best.dB, gen: generation });
+          hallOfFame.sort((a, b) => b.fitness - a.fitness);
+        }
+      }
+    }
+  }
+  renderHallOfFame();
+}
+
+function renderHallOfFame() {
+  const strip = $('#hof-strip');
+  if (hallOfFame.length === 0) return;
+  strip.innerHTML = '';
+  for (const h of hallOfFame) {
+    const el = document.createElement('div');
+    el.className = 'hof-entry';
+    el.innerHTML = `<img src="${h.imageData}" alt="pattern"><div class="hof-info">${h.fitness.toFixed(3)}<br>gen ${h.gen}<br>f=${h.f.toFixed(3)} k=${h.k.toFixed(3)}</div>`;
+    strip.appendChild(el);
+  }
+}
+
+// ── Fitness Chart ───────────────────────────────────────────
+
+function drawChart() {
+  const canvas = $('#fitness-chart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * 2; canvas.height = H * 2;
+  ctx.scale(2, 2);
+
+  ctx.fillStyle = '#0a0a1e';
+  ctx.fillRect(0, 0, W, H);
+
+  if (fitnessHistory[0].length < 2) return;
+
+  const maxGen = fitnessHistory[0].length;
+  const visibleGens = Math.min(maxGen, 100);
+  const startGen = maxGen - visibleGens;
+  const pad = { l: 35, r: 10, t: 10, b: 20 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  // Axes
+  ctx.strokeStyle = '#1a1a3a';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b);
+  ctx.stroke();
+
+  // Y labels
+  ctx.fillStyle = '#444';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  for (let v = 0; v <= 1; v += 0.25) {
+    const y = pad.t + plotH * (1 - v);
+    ctx.fillText(v.toFixed(2), pad.l - 4, y + 3);
+    ctx.strokeStyle = '#111128';
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+
+  // Lines
+  for (let i = 0; i < CONFIG.numIslands; i++) {
+    const data = fitnessHistory[i];
+    ctx.strokeStyle = ISLAND_COLORS[i];
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    for (let g = startGen; g < maxGen; g++) {
+      const x = pad.l + ((g - startGen) / (visibleGens - 1)) * plotW;
+      const y = pad.t + plotH * (1 - clamp(data[g], 0, 1));
+      g === startGen ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Gen label
+  ctx.fillStyle = '#444';
+  ctx.textAlign = 'center';
+  ctx.fillText(`gen ${maxGen - 1}`, W - pad.r - 20, H - 4);
+}
+
+// ── Evolution Loop ──────────────────────────────────────────
+
+async function runEvolution() {
+  while (running) {
+    // Evaluate all individuals
+    for (let i = 0; i < CONFIG.numIslands; i++) {
+      for (let j = 0; j < islands[i].population.length; j++) {
+        if (!running) return;
+        const ind = islands[i].population[j];
+        $('#status').textContent = `Evaluating island ${i+1}, individual ${j+1}/${CONFIG.popSize}`;
+        const result = simulator.evaluate(ind);
+        ind.fitness = result.fitness;
+        ind.imageData = result.imageData;
+        await waitFrame();
+      }
+      updateIslandDisplay(i);
+    }
+
+    // Record fitness history
+    for (let i = 0; i < CONFIG.numIslands; i++) {
+      fitnessHistory[i].push(islands[i].best.fitness);
+    }
+    drawChart();
+    updateHallOfFame();
+
+    // Update generation counter
+    $('#gen-num').textContent = generation;
+    const globalBest = Math.max(...islands.map(isl => isl.best.fitness));
+    $('#status').textContent = `Gen ${generation} complete. Best: ${globalBest.toFixed(3)}`;
+
+    // Evolve
+    for (const isl of islands) isl.evolve();
+
+    // Migrate
+    if (topology !== 'none' && generation > 0 && generation % CONFIG.migrationInterval === 0) {
+      migrate(islands, topology);
+      $('#status').textContent += ` | Migration (${topology})`;
+    }
+
+    generation++;
+    await waitFrame();
+  }
+}
+
+// ── Event Handlers ──────────────────────────────────────────
+
+function setupEvents() {
+  $('#btn-start').addEventListener('click', () => {
+    if (!webglOk) {
+      $('#status').textContent = 'WebGL not available. Open in a browser with GPU support.';
+      return;
+    }
+    if (!running) {
+      running = true;
+      $('#btn-start').disabled = true;
+      $('#btn-pause').disabled = false;
+      $('#btn-reset').disabled = false;
+      runEvolution();
+    }
+  });
+
+  $('#btn-pause').addEventListener('click', () => {
+    running = false;
+    $('#btn-start').disabled = false;
+    $('#btn-pause').disabled = true;
+    $('#status').textContent = 'Paused';
+  });
+
+  $('#btn-reset').addEventListener('click', () => {
+    running = false;
+    experimentRunning = false;
+    setTimeout(() => {
+      initState();
+      buildIslandCards();
+      drawChart();
+      $('#gen-num').textContent = '0';
+      $('#status').textContent = 'Reset. Ready.';
+      $('#btn-start').disabled = false;
+      $('#btn-pause').disabled = true;
+      $('#btn-reset').disabled = true;
+      $('#hof-strip').innerHTML = '<span style="font-size:11px;color:#444">Patterns will appear here as evolution runs...</span>';
+    }, 100);
+  });
+
+  $$('.topo-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      topology = btn.dataset.topo;
+      $$('.topo-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // Experiment panel
+  $('#experiment-toggle').addEventListener('click', () => {
+    const body = $('#experiment-body');
+    const arrow = $('#experiment-toggle .arrow');
+    const open = body.classList.toggle('open');
+    arrow.classList.toggle('open', open);
+  });
+
+  $('#btn-experiment').addEventListener('click', async () => {
+    if (experimentRunning) { experimentRunning = false; return; }
+    if (running) {
+      $('#exp-progress-container').style.display = '';
+      $('#exp-progress-text').textContent = 'Pause interactive evolution first';
+      return;
+    }
+
+    const numGens = parseInt($('#exp-gens').value) || 30;
+    const numSeeds = parseInt($('#exp-seeds').value) || 10;
+    const topoChecks = [...$$('#topo-checks input:checked')].map(cb => cb.value);
+
+    if (topoChecks.length === 0) {
+      $('#exp-progress-container').style.display = '';
+      $('#exp-progress-text').textContent = 'Select at least one topology';
+      return;
+    }
+
+    experimentRunning = true;
+    $('#btn-experiment').textContent = 'Cancel';
+    $('#btn-experiment').className = 'action-btn secondary';
+    $('#btn-start').disabled = true;
+    $('#btn-download-csv').disabled = true;
+    $('#exp-results').style.display = 'none';
+
+    const results = await runExperiment(topoChecks, numSeeds, numGens);
+
+    experimentRunning = false;
+    $('#btn-experiment').textContent = 'Run Experiment';
+    $('#btn-experiment').className = 'action-btn primary';
+    $('#btn-start').disabled = false;
+
+    if (results) {
+      experimentResults = results;
+      $('#btn-download-csv').disabled = false;
+      updateExpProgress(1, `Done \u2014 ${results.length} data points`);
+      renderExpResults(results, numGens);
+    } else {
+      updateExpProgress(0, 'Cancelled');
+    }
+  });
+
+  $('#btn-download-csv').addEventListener('click', () => {
+    if (experimentResults) {
+      downloadCSV(generateCSV(experimentResults), `turing-experiment-${Date.now()}.csv`);
+    }
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────
+
+initState();
+buildIslandCards();
+setupEvents();
+
+// Set up fitness chart canvas size
+const chartCanvas = $('#fitness-chart');
+chartCanvas.width = chartCanvas.clientWidth * 2;
+chartCanvas.height = chartCanvas.clientHeight * 2;
+drawChart();
+
+$('#status').textContent = webglOk ? 'Ready. Click Evolve to begin.' : 'WebGL not available. Open in a browser with GPU support.';
+</script>
+</body>
+</html>
